@@ -3,7 +3,7 @@ import googleapiclient.discovery
 import os
 from flask_restful import Resource
 
-from flask import request
+from flask import request,make_response
 
 
 class Comment(Resource):
@@ -23,7 +23,7 @@ class GetComment:
 
         api_service_name = "youtube"
         api_version = "v3"
-        developer_key = "AIzaSyAGCJK7EDHGgwg8eJ2GuX4C0sBEH-mLe0E"
+        developer_key = "AIzaSyB7QYqKwVd-24n_aI1k87jnM5GpSx3O4P8"
 
         youtube = googleapiclient.discovery.build(
             api_service_name, api_version, developerKey=developer_key)
@@ -33,7 +33,8 @@ class GetComment:
             id=video_id
         ).execute()
 
-        comment_count = vid_stats.get("items")[0].get("statistics").get("commentCount")
+        comment_count = int(vid_stats.get("items")[0].get("statistics").get("commentCount"))
+        print(comment_count)
         if comment_count == 0:
             return [], []
         else:
@@ -72,9 +73,12 @@ class GetComment:
                 result.append(data)
                 print(data)
             time += 1
-        video_comment = pd.concat(result)
-        video_comment['Title'] = video_title
-        return video_comment
+        if result:
+            video_comment = pd.concat(result)
+            video_comment['Title'] = video_title
+            return video_comment
+        else:
+            return result
 
     def get_data(self):
         url = self.url
@@ -83,7 +87,7 @@ class GetComment:
 
         api_service_name = "youtube"
         api_version = "v3"
-        developer_key = "AIzaSyAGCJK7EDHGgwg8eJ2GuX4C0sBEH-mLe0E"
+        developer_key = "AIzaSyB7QYqKwVd-24n_aI1k87jnM5GpSx3O4P8"
         # Get credentials and create an API client
         youtube = googleapiclient.discovery.build(
             api_service_name, api_version, developerKey=developer_key)
@@ -107,10 +111,16 @@ class GetComment:
                 'title': video_title[i]
             })
         list_video_info = pd.DataFrame(dict_video)
+        print(list_video_info)
         result = []
         for i in range(len(list_video_info)):
             vid_id = list_video_info.loc[i]['id']
             vid_title = list_video_info.loc[i]['title']
-            print(vid_title)
-            result.append(self.transform_comment(vid_id, vid_title))
-        return pd.concat(result).to_csv()
+            comment = self.transform_comment(vid_id, vid_title)
+            print(len(comment))
+            if len(comment)!=0:
+                result.append(comment)
+        resp = make_response(pd.concat(result).to_csv())
+        resp.headers["Content-Disposition"] = "attachment; filename=export.csv"
+        resp.headers["Content-Type"] = "text/csv"
+        return resp
